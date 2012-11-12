@@ -60,9 +60,6 @@ Updated: 11 Nov 2012 Scott Daniels
 #define PIXEL_OFF 0
 #define PIXEL_ON  1
 #define PIXEL_XOR 2
-// text display mode -- normal / highlight
-#define TEXT_NORMAL	0
-#define TEXT_HIGHLIGHT 1
 
 
 class nokiaLCD : public Print {
@@ -98,16 +95,14 @@ public:
 
 // character functions
   void setFont(unsigned char* font, byte width);
-  void setTextMode(char mode);
+  void setTextMode(bool highlight); // true = draw hilited; false = draw normal
   void setTextWrap(boolean wrapOn);
-  void writeChar(byte ch, char mode);
+  void writeChar(byte ch);
   void writeCR();
   void writeLF();
 
   void writeCharBig (byte x,byte y, byte ch);
-  void writeCharBig (byte x,byte y, byte ch, char mode);
   void writeStringBig( byte x,byte y, char *string);
-  void writeStringBig( byte x,byte y, char *string, char mode);
 
 
 // Bitmap functions
@@ -138,17 +133,17 @@ private:
   void setup(byte sce, byte res, byte dc, byte sdin, byte sclk, byte led);
   virtual void send_byte(byte dc, byte data);
 
-  byte kPin_sclk;
-  byte kPin_sdin;
-  byte kPin_dc;
-  byte kPin_reset;
-  byte kPin_sce;
-  byte kPin_led;
+  byte mPin_sclk;
+  byte mPin_sdin;
+  byte mPin_dc;
+  byte mPin_reset;
+  byte mPin_sce;
+  byte mPin_led;
 
   unsigned char* mFont;
-  byte pFontWidth;
-  char pTextMode; // normal or highlighted
-  boolean pWrapOn;
+  byte mFontWidth;
+  bool mNormalMode; // normal or reversed (highlighted)
+  bool mWrapText;
 };
 
 #endif // nokiaLCD_h

@@ -36,27 +36,22 @@ static byte lcd_buffer[LCDROWMAX][LCDCOLMAX];
 
 
 nokiaLCD::nokiaLCD(byte res, byte dc, byte sdin, byte sclk, byte sce, byte led)
-  : kPin_reset(res), kPin_dc(dc), kPin_sdin(sdin), kPin_sclk(sclk), kPin_sce(sce), kPin_led(led)
-{
-  // default font
-  mFont = smallFont;
-  pFontWidth = 5;
-  pTextMode = TEXT_NORMAL; // not highlighted
-  pWrapOn = true;
-}
+  : mPin_reset(res), mPin_dc(dc), mPin_sdin(sdin), mPin_sclk(sclk), mPin_sce(sce), mPin_led(led),
+    mFont(smallFont), mFontWidth(5), mNormalMode(true), mWrapText(true)
+{}
 
 /**
  * call this in your setup func - not before!!
 */
 void nokiaLCD::init()
 {
-  pinMode(kPin_sce, OUTPUT);
-  pinMode(kPin_reset, OUTPUT);
-  pinMode(kPin_dc, OUTPUT);
-  pinMode(kPin_sdin, OUTPUT);
-  pinMode(kPin_sclk, OUTPUT);
-  if (kPin_led >= 0) {
-      pinMode(kPin_led, OUTPUT);
+  pinMode(mPin_sce, OUTPUT);
+  pinMode(mPin_reset, OUTPUT);
+  pinMode(mPin_dc, OUTPUT);
+  pinMode(mPin_sdin, OUTPUT);
+  pinMode(mPin_sclk, OUTPUT);
+  if (mPin_led >= 0) {
+      pinMode(mPin_led, OUTPUT);
   }
 
   // this init code is from itead studio for their keyboard/display shield -
@@ -70,17 +65,17 @@ void nokiaLCD::init()
 
   // set the data pins high -
   // for some reason, this must be done first before the reset sequence in order for the sce pin to be optional (gnd)
-  digitalWrite(kPin_reset, HIGH);
-  digitalWrite(kPin_dc, HIGH);
-  digitalWrite(kPin_sdin, HIGH); // mo
-  digitalWrite(kPin_sclk, HIGH); // sck
-  digitalWrite(kPin_sce, HIGH); // cs
+  digitalWrite(mPin_reset, HIGH);
+  digitalWrite(mPin_dc, HIGH);
+  digitalWrite(mPin_sdin, HIGH); // mo
+  digitalWrite(mPin_sclk, HIGH); // sck
+  digitalWrite(mPin_sce, HIGH); // cs
   delay(5);
 
   // now reset the display
-  digitalWrite(kPin_reset, LOW);
+  digitalWrite(mPin_reset, LOW);
   delayMicroseconds(20);
-  digitalWrite(kPin_reset, HIGH);
+  digitalWrite(mPin_reset, HIGH);
 
   writeCommand(0x21);  // LCD Extended Commands
   //writeCommand(0xC0); 	// Set LCD Vop (Contrast) **NEW**
@@ -142,7 +137,7 @@ void nokiaLCD::home()
 
 void nokiaLCD::setCursor(byte row, byte col)
 {
-  gotoXY(col*(pFontWidth+1), row);
+  gotoXY(col*(mFontWidth+1), row);
 }
 
 void nokiaLCD::gotoLine(byte line)
@@ -178,12 +173,12 @@ void nokiaLCD::gotoXY(byte x, byte y)
 void nokiaLCD::backlight(byte level)
 {
   if (level == 0)
-    digitalWrite(kPin_led, LOW);
+    digitalWrite(mPin_led, LOW);
   else if (level == 1)
-    digitalWrite(kPin_led, HIGH);
+    digitalWrite(mPin_led, HIGH);
   else
   { // if pin is not PWM, then for level < 128 => off, level > 128 => on
-    analogWrite(kPin_led, level);
+    analogWrite(mPin_led, level);
   }
 }
 
@@ -193,19 +188,17 @@ void nokiaLCD::backlight(byte level)
 void nokiaLCD::setFont(byte* font, byte width)
 {
   mFont = font;
-  pFontWidth = width;
+  mFontWidth = width;
 }
 
-void nokiaLCD::setTextMode(char mode)
+void nokiaLCD::setTextMode(bool highlight)
 {
-  if ((mode >= 0) && (mode <= 1)) {
-    pTextMode = mode;
-  }
+  mNormalMode = !highlight;
 }
 
 void nokiaLCD::setTextWrap(boolean wrapOn)
 {
-  pWrapOn = wrapOn;
+  mWrapText = wrapOn;
 }
 
 void nokiaLCD::writeCR()
@@ -227,7 +220,7 @@ void nokiaLCD::writeLF()
  * Return value : none
  */
 
-void nokiaLCD::writeChar(byte ch, char mode)
+void nokiaLCD::writeChar(byte ch)
 {
 	byte j;
 
@@ -247,9 +240,9 @@ void nokiaLCD::writeChar(byte ch, char mode)
 // crossing reversed chars though - they do get wipped out.
 #ifdef USE_GRAPHIC
   // ensure space is available for the character
-      // orig:   cursor_col = LCDCOLMAX - pFontWidth;
-  if (cursor_col > LCDCOLMAX - pFontWidth) {
-    if (pWrapOn)
+      // orig:   cursor_col = LCDCOLMAX - mFontWidth;
+  if (cursor_col > LCDCOLMAX - mFontWidth) {
+    if (mWrapText)
     {
       writeCR();
       writeLF();
@@ -260,39 +253,39 @@ void nokiaLCD::writeChar(byte ch, char mode)
   // orig: cursor_row = LCDROWMAX - 1; // ensure space is available for the character
   if (cursor_row > LCDROWMAX - 1)
   {
-    if (pWrapOn)
+    if (mWrapText)
       home();
     else
       return; // overflow on bottom- just exit
   }
 
 	lcd_buffer[cursor_row][cursor_col] = 0x00;
-	for(j=0; j<pFontWidth; j++)
+	for(j=0; j<mFontWidth; j++)
   {
-		lcd_buffer[cursor_row][cursor_col + j] =  pgm_read_byte(&(mFont [(ch-32)*pFontWidth + j] ));
+		lcd_buffer[cursor_row][cursor_col + j] =  pgm_read_byte(&(mFont [(ch-32)*mFontWidth + j] ));
    }
-	lcd_buffer[cursor_row][cursor_col + pFontWidth] = 0x00; // blank 1 px space after char
+	lcd_buffer[cursor_row][cursor_col + mFontWidth] = 0x00; // blank 1 px space after char
 
-	for(j=0; j< pFontWidth+1; j++) // extra pixel for space after char
+	for(j=0; j< mFontWidth+1; j++) // extra pixel for space after char
   {
-		if( mode == TEXT_NORMAL )
+		if (mNormalMode)
 			writeData(lcd_buffer[cursor_row][cursor_col++]);
 		else
 			writeData(lcd_buffer[cursor_row][cursor_col++] ^ 0xff);
-		if ((cursor_col >= LCDCOLMAX) && pWrapOn)
+		if ((cursor_col >= LCDCOLMAX) && mWrapText)
 		{
       writeCR();
       writeLF();
 		}
 	}
 #else
-	for(j=0; j<pFontWidth; j++) {
-		if( mode == TEXT_NORMAL )
-			writeData( pgm_read_byte(&(mFont [(ch-32)*pFontWidth + j] )) );
+	for(j=0; j<mFontWidth; j++) {
+		if (mNormalMode)
+			writeData( pgm_read_byte(&(mFont [(ch-32)*mFontWidth + j] )) );
 		else
-			writeData( pgm_read_byte(&(mFont [(ch-32)*pFontWidth + j] )) ^ 0xff );
+			writeData( pgm_read_byte(&(mFont [(ch-32)*mFontWidth + j] )) ^ 0xff );
 	}
-	writeData( (mode == TEXT_NORMAL) ? 0x00 : 0xff );
+	writeData( (mNormalMode) ? 0x00 : 0xff );
 #endif
 }
 
@@ -307,9 +300,8 @@ size_t nokiaLCD::write(byte character)
 #else
 void nokiaLCD::write(byte character)
 #endif
-
 {
-  writeChar(character, pTextMode);
+  writeChar(character);
 }
 
 
@@ -322,10 +314,10 @@ void nokiaLCD::write(byte character)
  *                mode - reverse or normal
  * Return value : none
  */
-void nokiaLCD::writeStringBig( byte x,byte y, char *string, char mode)
+void nokiaLCD::writeStringBig( byte x,byte y, char *string)
 {
     while ( *string ){
-        writeCharBig( x, y, *string , mode );
+        writeCharBig( x, y, *string);
 
         // For decimal point use 5 pixel gap instead of 12 to not
 	// make spacing look odd
@@ -334,10 +326,6 @@ void nokiaLCD::writeStringBig( byte x,byte y, char *string, char mode)
         else
           x += 12;
     }
-}
-void nokiaLCD::writeStringBig( byte x,byte y, char *string)
-{
-  writeStringBig(x, y, string, pTextMode);
 }
 
 /*
@@ -349,7 +337,7 @@ void nokiaLCD::writeStringBig( byte x,byte y, char *string)
  *                mode - reverse or normal
  * Return value : none
  */
-void nokiaLCD::writeCharBig (byte x,byte y, byte ch, char mode)
+void nokiaLCD::writeCharBig (byte x,byte y, byte ch)
 {
   byte i, j;
   byte *pFont = &big_number_font[0];
@@ -380,17 +368,13 @@ void nokiaLCD::writeCharBig (byte x,byte y, byte ch, char mode)
        ch_dat =  pgm_read_byte(pFont+ch*48 + i*16 +j);	// 16 cols in data for char even if we use fewer.
        //ch_dat =  pgm_read_byte(pFont+ch*48 + i*12 +j);	// 12 cols in data for char even if we use fewer.
 #ifdef USE_GRAPHIC
-       lcd_buffer[cursor_row][cursor_col + j] = (mode == TEXT_NORMAL)? ch_dat : (ch_dat^0xff);
+       lcd_buffer[cursor_row][cursor_col + j] = (mNormalMode)? ch_dat : (ch_dat^0xff);
 #endif
-       writeData( (mode == TEXT_NORMAL)? ch_dat : (ch_dat^0xff));
+       writeData( (mNormalMode)? ch_dat : (ch_dat^0xff));
      }
    }
 }
 
-void nokiaLCD::writeCharBig( byte x,byte y, byte ch)
-{
-  writeCharBig(x, y, ch, pTextMode);
-}
 
 
 
@@ -717,21 +701,21 @@ void nokiaLCD::writeData(byte data) {
 }
 
 void nokiaLCD::send_byte(byte dc, byte data) {
-  digitalWrite(kPin_sce, LOW);
-  digitalWrite(kPin_dc, dc);
+  digitalWrite(mPin_sce, LOW);
+  digitalWrite(mPin_dc, dc);
 
   // can't uses shiftOut - it clocks high, then low instead of low then high
-  //shiftOut(kPin_sdin, kPin_sclk, MSBFIRST, data);
+  //shiftOut(mPin_sdin, mPin_sclk, MSBFIRST, data);
 
 	for(byte i=0;i<8;i++)
 	{
-		digitalWrite(kPin_sdin, (data & 0x80));//SPI_MO = dat & 0x80;
+		digitalWrite(mPin_sdin, (data & 0x80));//SPI_MO = dat & 0x80;
 		data = data<<1;
-    digitalWrite(kPin_sclk, LOW);
-    digitalWrite(kPin_sclk, HIGH);
+    digitalWrite(mPin_sclk, LOW);
+    digitalWrite(mPin_sclk, HIGH);
 	}
 
-  digitalWrite(kPin_sce, HIGH);
+  digitalWrite(mPin_sce, HIGH);
 }
 
 
