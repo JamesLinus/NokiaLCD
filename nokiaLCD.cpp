@@ -19,20 +19,7 @@
 #define LCD_CMD     LOW
 #define LCD_DATA     HIGH
 
-#define LCD_X     84
-#define LCD_Y     48
 
-#define LCDCOLMAX	84
-#define LCDROWMAX	6
-#define LCDPIXELROWMAX	48
-
-// current cursor postition
-static byte cursor_row = 0; /* 0-5 */
-static byte cursor_col = 0; /* 0-83 */
-
-#ifdef USE_GRAPHIC
-static byte lcd_buffer[LCDROWMAX][LCDCOLMAX];
-#endif
 
 
 nokiaLCD::nokiaLCD(byte res, byte dc, byte sdin, byte sclk, byte sce, byte led)
@@ -108,7 +95,7 @@ void nokiaLCD::clear()
     {
       writeData(0x00);
 #ifdef USE_GRAPHIC
-    	lcd_buffer[i][j] = 0x00;
+    	mBuffer[i][j] = 0x00;
 #endif
     }
   }
@@ -117,14 +104,14 @@ void nokiaLCD::clear()
 
 void nokiaLCD::clearLine()
 {
-  byte line = 	cursor_row;
+  byte line = 	mCursorRow;
 	gotoLine(line);
 
 		for(byte j=0; j< LCDCOLMAX; j++)
     {
       writeData(0x00);
 #ifdef USE_GRAPHIC
-    	lcd_buffer[line][j] = 0x00;
+    	mBuffer[line][j] = 0x00;
 #endif
     }
 	gotoLine(line);
@@ -142,12 +129,12 @@ void nokiaLCD::setCursor(byte row, byte col)
 
 void nokiaLCD::gotoLine(byte line)
 {
-  gotoXY(cursor_col, line); // don't want to prescale the col - leave it like it is
+  gotoXY(mCursorCol, line); // don't want to prescale the col - leave it like it is
 }
 
 void nokiaLCD::gotoCol(byte col)
 {
-  setCursor(cursor_row, col);
+  setCursor(mCursorRow, col);
 }
 
 
@@ -165,8 +152,8 @@ void nokiaLCD::gotoXY(byte x, byte y)
   writeCommand(0x80 | x);  // Column.
   writeCommand(0x40 | y);  // Row.
 
-	cursor_row = y;
-	cursor_col = x;
+	mCursorRow = y;
+	mCursorCol = x;
 
 }
 
@@ -208,7 +195,7 @@ void nokiaLCD::writeCR()
 
 void nokiaLCD::writeLF()
 {
-  gotoLine(cursor_row+1);
+  gotoLine(mCursorRow+1);
 }
 
 /*
@@ -240,8 +227,8 @@ void nokiaLCD::writeChar(byte ch)
 // crossing reversed chars though - they do get wipped out.
 #ifdef USE_GRAPHIC
   // ensure space is available for the character
-      // orig:   cursor_col = LCDCOLMAX - mFontWidth;
-  if (cursor_col > LCDCOLMAX - mFontWidth) {
+      // orig:   mCursorCol = LCDCOLMAX - mFontWidth;
+  if (mCursorCol > LCDCOLMAX - mFontWidth) {
     if (mWrapText)
     {
       writeCR();
@@ -250,8 +237,8 @@ void nokiaLCD::writeChar(byte ch)
     else return;
   }
 
-  // orig: cursor_row = LCDROWMAX - 1; // ensure space is available for the character
-  if (cursor_row > LCDROWMAX - 1)
+  // orig: mCursorRow = LCDROWMAX - 1; // ensure space is available for the character
+  if (mCursorRow > LCDROWMAX - 1)
   {
     if (mWrapText)
       home();
@@ -259,20 +246,20 @@ void nokiaLCD::writeChar(byte ch)
       return; // overflow on bottom- just exit
   }
 
-	lcd_buffer[cursor_row][cursor_col] = 0x00;
+	mBuffer[mCursorRow][mCursorCol] = 0x00;
 	for(j=0; j<mFontWidth; j++)
   {
-		lcd_buffer[cursor_row][cursor_col + j] =  pgm_read_byte(&(mFont [(ch-32)*mFontWidth + j] ));
+		mBuffer[mCursorRow][mCursorCol + j] =  pgm_read_byte(&(mFont [(ch-32)*mFontWidth + j] ));
    }
-	lcd_buffer[cursor_row][cursor_col + mFontWidth] = 0x00; // blank 1 px space after char
+	mBuffer[mCursorRow][mCursorCol + mFontWidth] = 0x00; // blank 1 px space after char
 
 	for(j=0; j< mFontWidth+1; j++) // extra pixel for space after char
   {
 		if (mNormalMode)
-			writeData(lcd_buffer[cursor_row][cursor_col++]);
+			writeData(mBuffer[mCursorRow][mCursorCol++]);
 		else
-			writeData(lcd_buffer[cursor_row][cursor_col++] ^ 0xff);
-		if ((cursor_col >= LCDCOLMAX) && mWrapText)
+			writeData(mBuffer[mCursorRow][mCursorCol++] ^ 0xff);
+		if ((mCursorCol >= LCDCOLMAX) && mWrapText)
 		{
       writeCR();
       writeLF();
@@ -368,7 +355,7 @@ void nokiaLCD::writeCharBig (byte x,byte y, byte ch)
        ch_dat =  pgm_read_byte(pFont+ch*48 + i*16 +j);	// 16 cols in data for char even if we use fewer.
        //ch_dat =  pgm_read_byte(pFont+ch*48 + i*12 +j);	// 12 cols in data for char even if we use fewer.
 #ifdef USE_GRAPHIC
-       lcd_buffer[cursor_row][cursor_col + j] = (mNormalMode)? ch_dat : (ch_dat^0xff);
+       mBuffer[mCursorRow][mCursorCol + j] = (mNormalMode)? ch_dat : (ch_dat^0xff);
 #endif
        writeData( (mNormalMode)? ch_dat : (ch_dat^0xff));
      }
@@ -499,7 +486,7 @@ void nokiaLCD::update() {
 	for(i=0; i< LCDROWMAX; i++) {
 		gotoXY (0,i);
 		for(j=0; j< LCDCOLMAX; j++) {
-			writeData(lcd_buffer[i][j]);
+			writeData(mBuffer[i][j]);
 		}
 	}
 #endif
@@ -524,7 +511,7 @@ void nokiaLCD::setPixel( byte x, byte y, byte c )
 
 	row = y / 8;
 
-	value = lcd_buffer[row][x];
+	value = mBuffer[row][x];
 	if( c == PIXEL_ON ) {
 		value |= (1 << (y % 8));
 	} else if( c == PIXEL_XOR ) {
@@ -533,7 +520,7 @@ void nokiaLCD::setPixel( byte x, byte y, byte c )
 		value &= ~(1 << (y % 8));
 	}
 
-	lcd_buffer[row][x] = value;
+	mBuffer[row][x] = value;
 
 	gotoXY (x,row);
 	writeData(value);
@@ -719,11 +706,3 @@ void nokiaLCD::send_byte(byte dc, byte data) {
 }
 
 
-  void nokiaLCD::DebugCursorPos()
-  {
-    Serial.print(" ");
-    Serial.print(cursor_row);
-    Serial.print(":");
-    Serial.print(cursor_col);
-    Serial.print(" ");
-  }

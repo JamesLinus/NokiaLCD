@@ -61,6 +61,13 @@ Updated: 11 Nov 2012 Scott Daniels
 #define PIXEL_ON  1
 #define PIXEL_XOR 2
 
+#define LCD_X     84
+#define LCD_Y     48
+
+#define LCDCOLMAX	84
+#define LCDROWMAX	6
+#define LCDPIXELROWMAX	48
+
 
 class nokiaLCD : public Print {
 public:
@@ -127,8 +134,6 @@ public:
   virtual void writeData(byte);
   virtual void writeCommand(byte);
 
-  void DebugCursorPos();
-
 private:
   void setup(byte sce, byte res, byte dc, byte sdin, byte sclk, byte led);
   virtual void send_byte(byte dc, byte data);
@@ -144,6 +149,14 @@ private:
   byte mFontWidth;
   bool mNormalMode; // normal or reversed (highlighted)
   bool mWrapText;
+
+// current cursor postition
+  byte mCursorRow; // 0-5
+  byte mCursorCol; // 0-83
+
+#ifdef USE_GRAPHIC
+  byte mBuffer[LCDROWMAX][LCDCOLMAX];
+#endif
 };
 
 #endif // nokiaLCD_h
