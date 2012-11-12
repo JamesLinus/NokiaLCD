@@ -1,6 +1,6 @@
-// Font definition for LCD 3110 library
+// Font definition for NokiaLCD library
 // 5 x 7 font
-// 1 pixel space at left and bottom
+// 1 pixel space at bottom
 // index = ASCII - 32
 #include <avr/pgmspace.h>
 
@@ -104,5 +104,5 @@ static unsigned char smallFont[] PROGMEM =
       0x00, 0x06, 0x09, 0x09, 0x06     // Degree symbol
 };
 
-unsigned char* smallFontPtr = &smallFont[0];
+//unsigned char* smallFontPtr = &smallFont[0];
 

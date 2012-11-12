@@ -1,7 +1,7 @@
 /*
  * Date: 24 March 2011
  * Author: Scott Daniels
- * Credits: based on a library by Andrew Lindsay. Removed unneccesary joystick stuff, etc. 
+ * Credits: based on a library by Andrew Lindsay. Removed unneccesary joystick stuff, etc.
  *          Also incorporated font support.
  */
 
@@ -35,11 +35,11 @@ static byte lcd_buffer[LCDROWMAX][LCDCOLMAX];
 #endif
 
 
-nokiaLCD::nokiaLCD(byte res, byte dc, byte sdin, byte sclk, byte sce, byte led) 
+nokiaLCD::nokiaLCD(byte res, byte dc, byte sdin, byte sclk, byte sce, byte led)
   : kPin_reset(res), kPin_dc(dc), kPin_sdin(sdin), kPin_sclk(sclk), kPin_sce(sce), kPin_led(led)
 {
   // default font
-  pCurrFont = smallFontPtr;
+  mFont = smallFont;
   pFontWidth = 5;
   pTextMode = TEXT_NORMAL; // not highlighted
   pWrapOn = true;
@@ -59,16 +59,16 @@ void nokiaLCD::init()
       pinMode(kPin_led, OUTPUT);
   }
 
-  // this init code is from itead studio for their keyboard/display shield - 
+  // this init code is from itead studio for their keyboard/display shield -
   // http://iteadstudio.com/store/index.php?main_page=product_info&cPath=18&products_id=308
 
-//A note from SparkFun comments: 
-//Reset/initialization can be picky - the datasheet says that the delay from power-up to reset mustn't exceed 30ms. 
-//What I found to be the best is to set SCE low and reset high at system bootup, wait 5ms for voltages to 
+//A note from SparkFun comments:
+//Reset/initialization can be picky - the datasheet says that the delay from power-up to reset mustn't exceed 30ms.
+//What I found to be the best is to set SCE low and reset high at system bootup, wait 5ms for voltages to
 //stabilize, lower reset, delay by ~1uS (1 nop @ 8MHz will do), raise reset then send it the initialization sequence above.
 
 
-  // set the data pins high - 
+  // set the data pins high -
   // for some reason, this must be done first before the reset sequence in order for the sce pin to be optional (gnd)
   digitalWrite(kPin_reset, HIGH);
   digitalWrite(kPin_dc, HIGH);
@@ -100,7 +100,7 @@ void nokiaLCD::init()
 
 /*
  * Name         : clear
- * Description  : Clear the screen and display buffer 
+ * Description  : Clear the screen and display buffer
  * Argument(s)  : none
  * Return value : none
  */
@@ -109,7 +109,7 @@ void nokiaLCD::clear()
 	home();  	//start with (0,0) home position
 
 	for(byte i=0; i< LCDROWMAX; i++) {
-		for(byte j=0; j< LCDCOLMAX; j++) 
+		for(byte j=0; j< LCDCOLMAX; j++)
     {
       writeData(0x00);
 #ifdef USE_GRAPHIC
@@ -125,7 +125,7 @@ void nokiaLCD::clearLine()
   byte line = 	cursor_row;
 	gotoLine(line);
 
-		for(byte j=0; j< LCDCOLMAX; j++) 
+		for(byte j=0; j< LCDCOLMAX; j++)
     {
       writeData(0x00);
 #ifdef USE_GRAPHIC
@@ -140,14 +140,19 @@ void nokiaLCD::home()
   gotoXY(0,0);
 }
 
-void nokiaLCD::setCursor(byte x, byte y)
+void nokiaLCD::setCursor(byte row, byte col)
 {
-  gotoXY(x,y);
+  gotoXY(col*(pFontWidth+1), row);
 }
 
 void nokiaLCD::gotoLine(byte line)
 {
-  setCursor(0, line);
+  gotoXY(cursor_col, line); // don't want to prescale the col - leave it like it is
+}
+
+void nokiaLCD::gotoCol(byte col)
+{
+  setCursor(cursor_row, col);
 }
 
 
@@ -163,14 +168,14 @@ void nokiaLCD::gotoXY(byte x, byte y)
   if (y > LCDROWMAX - 1) y = LCDROWMAX - 1 ; // ensure within limits
 
   writeCommand(0x80 | x);  // Column.
-  writeCommand(0x40 | y);  // Row.  
+  writeCommand(0x40 | y);  // Row.
 
 	cursor_row = y;
 	cursor_col = x;
 
 }
 
-void nokiaLCD::backlight(byte level) 
+void nokiaLCD::backlight(byte level)
 {
   if (level == 0)
     digitalWrite(kPin_led, LOW);
@@ -187,7 +192,7 @@ void nokiaLCD::backlight(byte level)
 
 void nokiaLCD::setFont(byte* font, byte width)
 {
-  pCurrFont = font;
+  mFont = font;
   pFontWidth = width;
 }
 
@@ -205,20 +210,16 @@ void nokiaLCD::setTextWrap(boolean wrapOn)
 
 void nokiaLCD::writeCR()
 {
-	cursor_col=0;
-  setCursor(0, cursor_row);
+  gotoCol(0);
 }
 
 void nokiaLCD::writeLF()
 {
-	cursor_col=0;
-	cursor_row++;
-	if (cursor_row >= LCDROWMAX) cursor_row=0;
-  setCursor(0, cursor_row);
+  gotoLine(cursor_row+1);
 }
 
 /*
- * Name         : writeChar 
+ * Name         : writeChar
  * Description  : Write a single normal font character to screen
  * 		  at current cursor position
  * Argument(s)  : ch - character to display
@@ -226,7 +227,7 @@ void nokiaLCD::writeLF()
  * Return value : none
  */
 
-void nokiaLCD::writeChar(byte ch, char mode) 
+void nokiaLCD::writeChar(byte ch, char mode)
 {
 	byte j;
 
@@ -241,12 +242,12 @@ void nokiaLCD::writeChar(byte ch, char mode)
     writeLF();
     return;
   }
-  
+
 // the graphic mode allows graphics to draw over the text without wipping it out. There does seem to be a bug in
 // crossing reversed chars though - they do get wipped out.
 #ifdef USE_GRAPHIC
   // ensure space is available for the character
-      // orig:   cursor_col = LCDCOLMAX - pFontWidth; 
+      // orig:   cursor_col = LCDCOLMAX - pFontWidth;
   if (cursor_col > LCDCOLMAX - pFontWidth) {
     if (pWrapOn)
     {
@@ -266,15 +267,15 @@ void nokiaLCD::writeChar(byte ch, char mode)
   }
 
 	lcd_buffer[cursor_row][cursor_col] = 0x00;
-	for(j=0; j<pFontWidth; j++) 
+	for(j=0; j<pFontWidth; j++)
   {
-		lcd_buffer[cursor_row][cursor_col + j] =  pgm_read_byte(&(pCurrFont [(ch-32)*pFontWidth + j] ));
+		lcd_buffer[cursor_row][cursor_col + j] =  pgm_read_byte(&(mFont [(ch-32)*pFontWidth + j] ));
    }
 	lcd_buffer[cursor_row][cursor_col + pFontWidth] = 0x00; // blank 1 px space after char
 
 	for(j=0; j< pFontWidth+1; j++) // extra pixel for space after char
   {
-		if( mode == TEXT_NORMAL ) 
+		if( mode == TEXT_NORMAL )
 			writeData(lcd_buffer[cursor_row][cursor_col++]);
 		else
 			writeData(lcd_buffer[cursor_row][cursor_col++] ^ 0xff);
@@ -286,10 +287,10 @@ void nokiaLCD::writeChar(byte ch, char mode)
 	}
 #else
 	for(j=0; j<pFontWidth; j++) {
-		if( mode == TEXT_NORMAL ) 
-			writeData( pgm_read_byte(&(pCurrFont [(ch-32)*pFontWidth + j] )) );
+		if( mode == TEXT_NORMAL )
+			writeData( pgm_read_byte(&(mFont [(ch-32)*pFontWidth + j] )) );
 		else
-			writeData( pgm_read_byte(&(pCurrFont [(ch-32)*pFontWidth + j] )) ^ 0xff );
+			writeData( pgm_read_byte(&(mFont [(ch-32)*pFontWidth + j] )) ^ 0xff );
 	}
 	writeData( (mode == TEXT_NORMAL) ? 0x00 : 0xff );
 #endif
@@ -313,26 +314,26 @@ void nokiaLCD::write(byte character)
 
 
 /*
- * Name         : writeStringBig 
+ * Name         : writeStringBig
  * Description  : Write a string using big font to position x,y
  * 		  Note: bigfont only includes digits, '.', '+', '-'
- * Argument(s)  : x,y - starting position on screen, x=0-83, y=0-6 
+ * Argument(s)  : x,y - starting position on screen, x=0-83, y=0-6
  *                string - string pointer of data to display
  *                mode - reverse or normal
- * Return value : none 
+ * Return value : none
  */
 void nokiaLCD::writeStringBig( byte x,byte y, char *string, char mode)
 {
     while ( *string ){
         writeCharBig( x, y, *string , mode );
-        
+
         // For decimal point use 5 pixel gap instead of 12 to not
 	// make spacing look odd
         if(*string++ == '.')
           x += 5;
         else
           x += 12;
-    }	
+    }
 }
 void nokiaLCD::writeStringBig( byte x,byte y, char *string)
 {
@@ -340,21 +341,21 @@ void nokiaLCD::writeStringBig( byte x,byte y, char *string)
 }
 
 /*
- * Name         : writeCharBig 
- * Description  : Write a single big character to screen 
+ * Name         : writeCharBig
+ * Description  : Write a single big character to screen
  * 		  Note: bigfont only includes digits, '.', '+', '-'
- * Argument(s)  : x,y - starting position on screen, x=0-83, y=0-6 
+ * Argument(s)  : x,y - starting position on screen, x=0-83, y=0-6
  *                ch - character to display
  *                mode - reverse or normal
  * Return value : none
  */
-void nokiaLCD::writeCharBig (byte x,byte y, byte ch, char mode) 
+void nokiaLCD::writeCharBig (byte x,byte y, byte ch, char mode)
 {
   byte i, j;
   byte *pFont = &big_number_font[0];
   byte ch_dat;
   byte colsUsed = 12;
-   
+
    if(ch == '.')
    {
      ch = 10;
@@ -374,7 +375,7 @@ void nokiaLCD::writeCharBig (byte x,byte y, byte ch, char mode)
 
    for(i=0;i<3;i++) {
      gotoXY( x, y+i);
- 
+
      for(j=0; j<colsUsed; j++) {
        ch_dat =  pgm_read_byte(pFont+ch*48 + i*16 +j);	// 16 cols in data for char even if we use fewer.
        //ch_dat =  pgm_read_byte(pFont+ch*48 + i*12 +j);	// 12 cols in data for char even if we use fewer.
@@ -383,7 +384,7 @@ void nokiaLCD::writeCharBig (byte x,byte y, byte ch, char mode)
 #endif
        writeData( (mode == TEXT_NORMAL)? ch_dat : (ch_dat^0xff));
      }
-   } 
+   }
 }
 
 void nokiaLCD::writeCharBig( byte x,byte y, byte ch)
@@ -400,25 +401,25 @@ void nokiaLCD::writeCharBig( byte x,byte y, byte ch)
 #ifdef USE_BITMAP
 /*
  * Name         : drawBitmap
- * Description  : Sends a bitmap image stored in ram to the display 
+ * Description  : Sends a bitmap image stored in ram to the display
  * Argument(s)  : x, y - Position on screen, x 0-83, y 1-6
  *                map - pointer to data
  *                size_x,size_y - Size of the image in pixels,
  *                size_y is multiple of 8
- * Return value : none 
+ * Return value : none
  */
 void nokiaLCD::drawBitmap(byte x,byte y, byte *map, byte size_x,byte size_y)
 {
     unsigned int i,n;
     byte row;
-    
+
     row = (size_y % 8 == 0 ) ? size_y / 8 : size_y / 8 + 1;
 //    if (size_y % 8==0) {
-//	row = size_y/8;  
+//	row = size_y/8;
 //    } else {
 //	row = size_y/8+1;
 //    }
-    
+
     for (n=0;n<row;n++) {
       	gotoXY(x,y);
         for(i=0; i<size_x; i++) {
@@ -430,71 +431,71 @@ void nokiaLCD::drawBitmap(byte x,byte y, byte *map, byte size_x,byte size_y)
 
 
 /*
- * Name         : drawBitmapP 
- * Description  : Sends a bitmap image stored in progmen/flash to the display 
+ * Name         : drawBitmapP
+ * Description  : Sends a bitmap image stored in progmen/flash to the display
  *                Use Bitmap2LCD to create bitmap files.
  *                Settings: Full screen Sixe 84 x 48,
  *                Vertical Downwards, MSB Last
  *                Use comma seperaters
  *                Change .h file definition to be:
  *                	static const prog_char  imageName [] PROGMEM = {
- * 		  
+ *
  * Argument(s)  : x, y - Position on screen, x 0-83, y 1-6
  *                map - pointer to data
  *                size_x,size_y - Size of the image in pixels,
  *                size_y is multiple of 8
- * Return value : none 
+ * Return value : none
  */
 void nokiaLCD::drawBitmapP(byte x,byte y, const prog_char *map, byte size_x, byte size_y)
 {
     unsigned int i,n;
     byte row;
     const prog_char *dptr;
-    
+
     row = (size_y % 8 == 0 ) ? size_y / 8 : size_y / 8 + 1;
 //    if (size_y % 8 ==0)
-//    	row=size_y/8; 
+//    	row=size_y/8;
 //    else
 //    	row=size_y/8+1;
-    
+
     for (n=0;n<row;n++) {
       	gotoXY(x,y);
         for(i=0; i<size_x; i++) {
             dptr = map + (i + n * size_x);
             writeData( pgm_read_byte( dptr ) );
           }
-        y++;                       
-    }      
+        y++;
+    }
 }
 
 
 /*
- * Name         : clearBitmap 
+ * Name         : clearBitmap
  * Description  : Clear an area of the screen, usually to blank out a
  * 		  previously drawn image or part of image.
  * Argument(s)  : x, y - Position on screen, x 0-83, y 1-6
  *                size_x,size_y - Size of the image in pixels,
  *                size_y is multiple of 8
- * Return value : none 
+ * Return value : none
  */
 void nokiaLCD::clearBitmap( byte x,byte y, byte size_x,byte size_y)
 {
     unsigned int i,n;
     byte row;
-    
+
     row = (size_y % 8 == 0 ) ? size_y / 8 : size_y / 8 + 1;
 //    if (size_y % 8==0)
-//	    row=size_y/8;  
+//	    row=size_y/8;
 //    else
 //    	    row=size_y/8+1;
-    
+
     for (n=0;n<row;n++) {
       	gotoXY(x,y);
         for(i=0; i<size_x; i++) {
             writeData( 0x00 );
         }
-        y++;                       
-    }      
+        y++;
+    }
 }
 #endif
 
@@ -517,7 +518,7 @@ void nokiaLCD::update() {
 			writeData(lcd_buffer[i][j]);
 		}
 	}
-#endif 
+#endif
 	gotoXY (0,0);	//bring the XY position back to (0,0)
 }
 
@@ -530,11 +531,11 @@ void nokiaLCD::update() {
  *                c - colour, either PIXEL_ON, PIXEL_OFF or PIXEL_XOR
  * Return value : none
  */
-void nokiaLCD::setPixel( byte x, byte y, byte c ) 
+void nokiaLCD::setPixel( byte x, byte y, byte c )
 {
   byte value;
   byte row;
-	
+
 	if( x < 0 || x >= LCDCOLMAX || y < 0 || y >= LCDPIXELROWMAX ) return;
 
 	row = y / 8;
@@ -667,12 +668,12 @@ void nokiaLCD::drawFilledRectangle(byte x1, byte y1, byte x2, byte y2, byte c)
 
 /*
  * Name         : drawCircle
- * Description  : Draw a circle using Bresenham's algorithm. 
+ * Description  : Draw a circle using Bresenham's algorithm.
  * 		  Some small circles will look like squares!!
  * Argument(s)  : xc, yc - Centre of circle
  * 		  r - Radius
  * 		  c - either PIXEL_ON, PIXEL_OFF or PIXEL_XOR
- * Return value : None 
+ * Return value : None
  */
 void nokiaLCD::drawCircle(byte xc, byte yc, byte r, byte c)
 {
@@ -734,3 +735,11 @@ void nokiaLCD::send_byte(byte dc, byte data) {
 }
 
 
+  void nokiaLCD::DebugCursorPos()
+  {
+    Serial.print(" ");
+    Serial.print(cursor_row);
+    Serial.print(":");
+    Serial.print(cursor_col);
+    Serial.print(" ");
+  }

@@ -81,9 +81,13 @@ public:
   void clearLine(); // clear just current line - ready to write
 
   void home();
-  void setCursor(byte x, byte y);
+  // char based locations - row: 0-5, col: 0-13
+  void setCursor(byte row, byte col);
   void gotoLine(byte line);
+  void gotoCol(byte col);
+  // graphics based location - x: 0-83, y: 0-5; goto is restricted to byte jumps in rows
   void gotoXY(byte x, byte y);
+
 #if defined(ARDUINO) && ARDUINO >= 100
   virtual size_t write(byte character);
 #else
@@ -128,6 +132,8 @@ public:
   virtual void writeData(byte);
   virtual void writeCommand(byte);
 
+  void DebugCursorPos();
+
 private:
   void setup(byte sce, byte res, byte dc, byte sdin, byte sclk, byte led);
   virtual void send_byte(byte dc, byte data);
@@ -139,7 +145,7 @@ private:
   byte kPin_sce;
   byte kPin_led;
 
-  unsigned char* pCurrFont;
+  unsigned char* mFont;
   byte pFontWidth;
   char pTextMode; // normal or highlighted
   boolean pWrapOn;
