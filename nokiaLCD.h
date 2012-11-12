@@ -1,3 +1,50 @@
+/*
+ *      This program is free software; you can redistribute it and/or modify
+ *      it under the terms of the GNU General Public License as published by
+ *      the Free Software Foundation; either version 2 of the License, or
+ *      (at your option) any later version.
+ *
+ *      This program is distributed in the hope that it will be useful,
+ *      but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *      MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *      GNU General Public License for more details.
+ *
+ *      You should have received a copy of the GNU General Public License
+ *      along with this program; if not, write to the Free Software
+ *      Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ *      MA 02110-1301, USA.
+ */
+
+
+/*  * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ NokiaLCD Library
+ Author: Scott Daniels
+ Website: http://provideyourown.com
+ Code available from: https://github.com/provideyourown
+
+ Based on LCD library for noka 3110 display by Author: A Lindsay,
+ URL is unknown. Parts of other Nokia libraries may have also been
+ used, but exact sources are also unknown.
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+/**
+This library provides support for the common Nokia 5110 LCD display.
+This display supports full monochrome graphics: 84 cols x 48 rows,
+with a white LED backlight. It may be possible to extend support to
+other displays by changing the display parameters and cmds.
+
+There are two types of support: character based and graphics based.
+The class inherits from Print, so all print functions are also
+available including C++ streaming.
+*/
+
+/**
+Changelog:
+
+Updated: 11 Nov 2012 Scott Daniels
+  initial commit to git - most text & graphic funcs complete
+*/
+
 #ifndef nokiaLCD_h
 #define nokiaLCD_h
 
